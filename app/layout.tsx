@@ -6,6 +6,8 @@ import NextTopLoader from 'nextjs-toploader';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { auth } from '@/auth';
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale, getMessages } from 'next-intl/server';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,13 +22,19 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
+
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body className={`${inter.className} overflow-hidden`}>
         <NextTopLoader />
         <Providers session={session}>
           <Toaster />
-          {children}
+          <NextIntlClientProvider messages={messages}>
+            {children}
+          </NextIntlClientProvider>
         </Providers>
       </body>
     </html>
