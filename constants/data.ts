@@ -119,6 +119,12 @@ export const navItems: NavItem[] = [
     label: 'Dashboard'
   },
   {
+    title: 'QRs',
+    href: '/dashboard/qrs',
+    icon: 'sun',
+    label: 'qrs'
+  },
+  {
     title: 'User',
     href: '/dashboard/user',
     icon: 'user',

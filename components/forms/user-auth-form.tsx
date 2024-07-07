@@ -10,25 +10,30 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import GoogleSignInButton from '../github-auth-button';
+import { login } from '@/app/login/actions';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
-  email: z.string().email({ message: 'Enter a valid email address' })
+  email: z.string().email({ message: 'Enter a valid email address' }),
+  password: z
+    .string()
+    .min(6, { message: 'Password must be at least 6 characters' })
 });
 
 type UserFormValue = z.infer<typeof formSchema>;
 
 export default function UserAuthForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl');
   const [loading, setLoading] = useState(false);
   const defaultValues = {
-    email: 'demo@gmail.com'
+    email: 'b.cihancengiz@gmail.com',
+    password: '123456'
   };
   const form = useForm<UserFormValue>({
     resolver: zodResolver(formSchema),
@@ -36,10 +41,8 @@ export default function UserAuthForm() {
   });
 
   const onSubmit = async (data: UserFormValue) => {
-    signIn('credentials', {
-      email: data.email,
-      callbackUrl: callbackUrl ?? '/dashboard'
-    });
+    await login(data.email, data.password);
+    router.push('/dashboard');
   };
 
   return (
@@ -67,6 +70,24 @@ export default function UserAuthForm() {
               </FormItem>
             )}
           />
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Password</FormLabel>
+                <FormControl>
+                  <Input
+                    type="password"
+                    placeholder="Enter your password..."
+                    disabled={loading}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           <Button disabled={loading} className="ml-auto w-full" type="submit">
             Continue With Email
@@ -83,7 +104,6 @@ export default function UserAuthForm() {
           </span>
         </div>
       </div>
-      <GoogleSignInButton />
     </>
   );
 }
