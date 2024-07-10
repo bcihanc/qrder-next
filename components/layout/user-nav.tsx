@@ -1,32 +1,36 @@
 'use client';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
-import { createBrowserClient } from '@supabase/ssr';
-import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import useUser from '@/hooks/useUser';
+import * as React from 'react';
+import { createClient } from '@/utils/supabase/client';
+
 export function UserNav() {
   const router = useRouter();
+
   return (
-    <Button
-      onClick={async () => {
-        await createClient().auth.signOut();
-        router.replace('/login');
-      }}
-    >
-      Logout
-    </Button>
+    <div>
+      <Button
+        variant="ghost"
+        onClick={async () => {
+          await createClient().auth.signOut();
+          router.replace('/login');
+        }}
+      >
+        Logout
+      </Button>
+    </div>
   );
+  // return (
+  //   <Button
+  //     onClick={async () => {
+  //       await createClient().auth.signOut();
+  //       router.replace('/login');
+  //     }}
+  //   >
+  //     Logout
+  //   </Button>
+  // );
   // return (
   //   <DropdownMenu>
   //     {/*<DropdownMenuTrigger asChild>*/}

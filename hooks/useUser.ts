@@ -1,7 +1,8 @@
 // useUser.ts
-import { useEffect } from 'react';
+import { useDebugValue, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import useSWRImmutable from 'swr/immutable';
+import useSWR from 'swr';
 
 const supabase = createClient();
 

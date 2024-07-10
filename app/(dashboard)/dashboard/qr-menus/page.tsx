@@ -1,11 +1,11 @@
-import { getQRs } from '@/app/(dashboard)/dashboard/qrs/actions';
 import BreadCrumb from '@/components/breadcrumb';
 import { Heading } from '@/components/ui/heading';
 import { Separator } from '@/components/ui/separator';
-import { columns } from '@/components/tables/qr-tables/columns';
-import { QRTable } from '@/components/tables/qr-tables/qr-table';
+import { columns } from '@/components/tables/qr-menu-tables/columns';
+import { getQRMenus } from '@/app/(dashboard)/dashboard/qr-menus/actions';
+import { QrMenuTable } from '@/components/tables/qr-menu-tables/qr-menu-table';
 
-const breadcrumbItems = [{ title: 'QRs', link: '/dashboard/qrs' }];
+const breadcrumbItems = [{ title: 'QR Menus', link: '/dashboard/qr-menus' }];
 
 type paramsProps = {
   searchParams: {
@@ -18,7 +18,7 @@ export default async function Page({ searchParams }: paramsProps) {
   const pageLimit = Number(searchParams.limit) || 10;
   const search = searchParams.search as string | null;
 
-  const { qrs, count } = await getQRs(page, pageLimit, search);
+  const { qrMenus, count } = await getQRMenus();
   const totalUsers = count || 0;
   const pageCount = Math.ceil(totalUsers / pageLimit);
   return (
@@ -33,12 +33,12 @@ export default async function Page({ searchParams }: paramsProps) {
         </div>
         <Separator />
 
-        <QRTable
+        <QrMenuTable
           searchKey="name"
           pageNo={page}
           columns={columns}
           totalUsers={totalUsers}
-          data={qrs ?? []}
+          data={qrMenus ?? []}
           pageCount={pageCount}
         />
       </div>

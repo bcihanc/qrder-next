@@ -1,20 +1,13 @@
 'use client';
-import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
-import { Tables } from '@/types/supabase';
-import { CellAction } from '@/components/tables/qr-tables/cell-action';
+
+import { ColumnDef } from '@tanstack/react-table';
 import { Input } from '@/components/ui/input';
 import { updateQRName } from '@/app/(dashboard)/dashboard/qrs/actions';
-import { useRef, useState } from 'react';
-import { isEmpty } from 'lodash';
+import { useState } from 'react';
 import { toast } from 'sonner';
+import { SupabaseQRModel } from '@/app/(dashboard)/dashboard/qrs/types';
 
-const columnHelper = createColumnHelper<Tables<'qrs'>>();
-
-export const columns: ColumnDef<Tables<'qrs'>>[] = [
-  {
-    accessorKey: 'id',
-    header: 'ID'
-  },
+export const columns: ColumnDef<SupabaseQRModel>[] = [
   {
     accessorKey: 'name',
     header: 'Name',
@@ -27,7 +20,7 @@ export const columns: ColumnDef<Tables<'qrs'>>[] = [
             onChange={(event) => setName(event.currentTarget.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
-                event.target.blur();
+                event.currentTarget.blur();
                 if (name !== row.original.name) {
                   updateQRName(row.original.id, name!).then(() => {
                     toast.success(`QR updated ${name}`);
@@ -41,7 +34,11 @@ export const columns: ColumnDef<Tables<'qrs'>>[] = [
     }
   },
   {
-    id: 'actions',
-    cell: ({ row }) => <CellAction data={row.original} />
+    accessorKey: 'scan_counts',
+    header: 'Scan Counts'
+  },
+  {
+    accessorKey: 'id',
+    header: 'ID'
   }
 ];

@@ -24,13 +24,24 @@ alter
 alter
     default privileges in schema public grant all on sequences to postgres, anon, authenticated, service_role;
 
-create extension if not exists moddatetime schema extensions;
+create extension if not exists moddatetime;
+
+-- drop extension timescaledb;
+-- create extension if not exists timescaledb;
 
 create table businesses
 (
-    id         uuid                     default extensions.uuid_generate_v4() primary key,
-    created_at timestamp with time zone default now(),
-    name       text not null
+    id               uuid                     default extensions.uuid_generate_v4() primary key,
+    created_at       timestamp with time zone default now(),
+    name             text not null
+);
+
+create table employees
+(
+    id          uuid references auth.users on delete cascade primary key,
+    created_at  timestamp with time zone default now(),
+    name        text                                         not null,
+    business_id uuid references businesses on delete cascade not null
 );
 
 create table qrs
@@ -39,80 +50,140 @@ create table qrs
     created_at  timestamp with time zone default now(),
     updated_at  timestamp with time zone default now(),
     business_id uuid references businesses on delete cascade not null,
-    name       text
+    name        text,
+    fts         tsvector generated always as (to_tsvector('turkish', (name))) stored,
+    scan_counts int                      default 0           not null
 );
 
-create trigger qrs_handle_updated_at before update on qrs
-    for each row execute procedure moddatetime (updated_at);
+create index qrs_business_id_pkey on qrs using btree (business_id);
+
+create table qr_menus
+(
+    id          uuid                     default extensions.uuid_generate_v4() primary key,
+    created_at  timestamp with time zone default now(),
+    business_id uuid references businesses on delete cascade not null,
+    name        text                                         not null,
+    active      boolean                  default true        not null
+);
+
+create index qr_menus_business_id_pkey on qr_menus using btree (business_id);
+
+create table qr_menu_items
+(
+    id         uuid                     default extensions.uuid_generate_v4() primary key,
+    created_at timestamp with time zone default now(),
+    qr_menu_id uuid references qr_menus on delete cascade not null,
+    active     boolean                  default true      not null,
+    notify     boolean                  default true      not null,
+    sort_order int                      default 0         not null,
+    tags       text[]
+);
+
+create index qr_menu_items_qr_menu_id_pkey on qr_menu_items using btree (qr_menu_id);
+
+create table qr_menu_item_translations
+(
+    id              uuid                     default extensions.uuid_generate_v4() primary key,
+    created_at      timestamp with time zone default now(),
+    qr_menu_item_id uuid references qr_menu_items on delete cascade not null,
+    language        text                                            not null,
+    name            text                                            not null,
+    description     text,
+    image           text,
+    price           numeric                                         not null,
+    currency        text                                            not null
+);
+
+create index qr_menu_item_translations_qr_menu_id_pkey on qr_menu_item_translations using btree (qr_menu_item_id);
+
+create table qr_scans
+(
+    scan_at     timestamp with time zone default now(),
+    qr_id       uuid references qrs on delete cascade        not null,
+    business_id uuid references businesses on delete cascade not null
+);
+
+create index qr_scans_business_id_pkey on qr_scans using btree (business_id);
+create index qr_scans_qr_id_scan_at_pkey on qr_scans (qr_id, scan_at desc);
+
+select extensions.create_hypertable('qr_scans', 'scan_at');
+
+create trigger qrs_handle_updated_at
+    before update
+    on qrs
+    for each row
+execute procedure moddatetime(updated_at);
+
+create
+    or replace function update_qrs_table_scan_counts() returns trigger
+    language plpgsql
+    security definer as
+$$
+begin
+
+    update qrs
+    set scan_counts = qrs.scan_counts + 1
+    where id = NEW.qr_id;
+    return NEW;
+end;
+$$;
+
+create trigger
+    trigger_qrs_table_scan_counts
+    after
+        insert
+    on qr_scans
+    for each row
+execute
+    procedure update_qrs_table_scan_counts();
 
 insert into businesses (id, name)
 values ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e',
         'CoffieMachine'),
        ('c581cb3a-8f85-47a8-b158-e71a47d499fb',
-        'ChikenRun');
+        'ChikenRun'),
+       ('459fe8d3-2c2c-499f-9383-efa977c0e0a5',
+        'Milk Way')
+;
 
-insert into qrs (business_id)
-values ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
-       ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e');
+insert into qr_menus (id, business_id, name)
+values ('8ba7e95a-c7ea-40ed-a7e9-5ac7ea40ed39', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e', 'Menu 1'),
+       ('0f6a968f-6336-4ec5-aa96-8f6336bec58e', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e', 'Menu 2');
+
+insert into employees (id, name, business_id)
+values ('49d8b61f-f907-493c-8a17-fb8054b44978', 'cihan', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e');
+
+insert into qrs (id, business_id, name)
+values ('7aa1da39-8646-47cd-a1da-39864687cde8', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e', ''),
+       ('382a32a5-8afa-4c01-aa32-a58afa7c018f', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e', 'masa 12'),
+       ('0d3eaf4a-9416-4d88-beaf-4a94168d8818', 'c581cb3a-8f85-47a8-b158-e71a47d499fb', 'masa 145');
+
+insert into qr_scans (qr_id, business_id, scan_at)
+values ('7aa1da39-8646-47cd-a1da-39864687cde8', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e', now() - interval '1 day'),
+       ('7aa1da39-8646-47cd-a1da-39864687cde8', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e', now() - interval '2 day'),
+       ('7aa1da39-8646-47cd-a1da-39864687cde8', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e', now() - interval '3 day'),
+       ('7aa1da39-8646-47cd-a1da-39864687cde8', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e', now() - interval '4 day'),
+       ('7aa1da39-8646-47cd-a1da-39864687cde8', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e', now() - interval '5 day'),
+       ('7aa1da39-8646-47cd-a1da-39864687cde8', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e', now() - interval '6 day'),
+       ('382a32a5-8afa-4c01-aa32-a58afa7c018f', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e', now() - interval '7 day'),
+       ('382a32a5-8afa-4c01-aa32-a58afa7c018f', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e', now() - interval '8 day'),
+       ('382a32a5-8afa-4c01-aa32-a58afa7c018f', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e', now() - interval '9 day'),
+       ('382a32a5-8afa-4c01-aa32-a58afa7c018f', '1315c5d3-e635-4e4e-af53-85a7fe65bd4e', now() - interval '9 day');
+
+
+-- drop function if exists qr_scans_this_month(qr_id_param UUID);
+-- CREATE OR REPLACE FUNCTION qr_scans_this_month(qr_id_param UUID)
+--     RETURNS INTEGER AS
+-- $$
+-- BEGIN
+--     RETURN (SELECT COUNT(*)
+--             FROM qr_scans
+--             WHERE qr_id = qr_id_param
+--               AND time_bucket('1 month', scan_at) = time_bucket('1 month', CURRENT_TIMESTAMP));
+-- END;
+-- $$ LANGUAGE plpgsql;
+--
+-- select qr_scans_this_month('7aa1da39-8646-47cd-a1da-39864687cde8');
 
 -- alter table user_profiles
 --     enable row level security;
@@ -146,7 +217,7 @@ values ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
 -- alter table user_followers
 --     enable row level security;
 --
--- create policy "user_followers reads only authenticated owner"
+-- create policy "user_followers scans only authenticated owner"
 --     on user_followers
 --     for select
 --     using ((select auth.uid()) = user_id);
@@ -191,7 +262,7 @@ values ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
 -- alter table posts
 --     enable row level security;
 --
--- create policy "posts reads to everyone"
+-- create policy "posts scans to everyone"
 --     on posts
 --     for select
 --     using (true);
@@ -284,7 +355,7 @@ values ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
 -- alter table post_likes
 --     enable row level security;
 --
--- create policy "post_likes reads to everyone"
+-- create policy "post_likes scans to everyone"
 --     on post_likes
 --     for select
 --     using (true);
@@ -319,7 +390,7 @@ values ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
 -- alter table post_reports
 --     enable row level security;
 --
--- create policy "post_reports reads to everyone"
+-- create policy "post_reports scans to everyone"
 --     on post_reports
 --     for select
 --     using (true);
@@ -384,7 +455,7 @@ values ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
 -- alter table post_comments
 --     enable row level security;
 --
--- create policy "post_comments reads to everyone"
+-- create policy "post_comments scans to everyone"
 --     on post_comments
 --     for select
 --     using (true);
@@ -451,7 +522,7 @@ values ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
 -- alter table post_comment_reports
 --     enable row level security;
 --
--- create policy "post_comment_reports reads to everyone"
+-- create policy "post_comment_reports scans to everyone"
 --     on post_comment_reports
 --     for select
 --     using (true);
@@ -530,7 +601,7 @@ values ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
 -- alter table discussions
 --     enable row level security;
 --
--- create policy "discussions reads to everyone"
+-- create policy "discussions scans to everyone"
 --     on discussions
 --     for select
 --     using (true);
@@ -573,7 +644,7 @@ values ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
 -- alter table discussion_answers
 --     enable row level security;
 --
--- create policy "discussion_answers reads to everyone"
+-- create policy "discussion_answers scans to everyone"
 --     on discussion_answers
 --     for select
 --     using (true);
@@ -1008,7 +1079,7 @@ values ('1315c5d3-e635-4e4e-af53-85a7fe65bd4e'),
 -- -- insert into storage.buckets (id, name, public)
 -- -- values ('assets', 'assets', true);
 -- --
--- -- create policy "assets reads to everyone"
+-- -- create policy "assets scans to everyone"
 -- --     on storage.objects
 -- --     for select
 -- --     using (

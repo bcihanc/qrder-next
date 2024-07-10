@@ -49,7 +49,7 @@ interface DataTableProps<TData, TValue> {
   };
 }
 
-export function QRTable<TData, TValue>({
+export function QrMenuTable<TData, TValue>({
   columns,
   data,
   pageNo,
